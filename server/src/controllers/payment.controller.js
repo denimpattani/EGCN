@@ -23,6 +23,29 @@ export const createOrder = async (req, res) => {
     }
 
     const amountInPaise = PLAN_PRICES[plan] * 100;
+
+    // --- STRICT BACKEND IDEMPOTENCY ---
+    // Check if there is already a 'created' order for this user and plan within the last 15 minutes
+    const idempotencyWindow = new Date(Date.now() - 15 * 60 * 1000);
+    const existingSubscription = await Subscription.findOne({
+      userId,
+      plan,
+      status: 'created',
+      createdAt: { $gte: idempotencyWindow }
+    });
+
+    if (existingSubscription) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          orderId: existingSubscription.razorpayOrderId,
+          amount: existingSubscription.amount,
+          currency: 'INR',
+          plan: existingSubscription.plan,
+        },
+      });
+    }
+    // ----------------------------------
     const receiptId = `receipt_${userId.substring(18)}_${Date.now().toString().substring(8)}`;
 
     const options = {
