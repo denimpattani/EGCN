@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import Joyride, { STATUS } from 'react-joyride';
 import { useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { tourSteps } from '../../config/tourSteps';
+import { tourSteps } from '../config/tourSteps';
 
 export default function AppTour({ manualRun, onTourEnd }) {
   const [run, setRun] = useState(false);
