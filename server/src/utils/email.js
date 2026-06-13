@@ -18,6 +18,8 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER || 'egcnetworkofficial@gmail.com',
     pass: process.env.SMTP_PASS,
   },
+  connectionTimeout: 5000, // 5 seconds max wait to prevent hanging
+  greetingTimeout: 5000,
 });
 
 export const sendVerificationEmail = async (toEmail, otp) => {
@@ -36,7 +38,8 @@ export const sendVerificationEmail = async (toEmail, otp) => {
     await transporter.sendMail(mailOptions);
     return true;
   } catch (error) {
-    console.error('Email Send Error:', error);
+    console.error('Email Send Error (Render Free Tier blocks SMTP):', error.message);
+    console.log(`\n=========================================\n🚨 EMERGENCY OTP FOR ${toEmail}: ${otp}\n=========================================\n`);
     return false;
   }
 };
