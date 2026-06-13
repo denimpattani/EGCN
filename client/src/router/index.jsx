@@ -5,6 +5,7 @@ import Signup from '../pages/Auth/Signup.jsx'
 import OTPVerification from '../pages/Auth/OTPVerification.jsx'
 import ForgotPassword from '../pages/Auth/ForgotPassword.jsx'
 import ResetPassword from '../pages/Auth/ResetPassword.jsx'
+import PublicPricing from '../pages/Pricing/index.jsx'
 
 import ProtectedRoute from '../components/Auth/ProtectedRoute.jsx'
 import PersistLogin from '../components/Auth/PersistLogin.jsx'
@@ -29,6 +30,7 @@ export default function AppRouter() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/pricing" element={<PublicPricing />} />
       <Route path="/signin" element={<Signin />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/verify-email" element={<OTPVerification />} />
