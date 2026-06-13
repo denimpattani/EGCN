@@ -1,0 +1,209 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── CSS custom properties — logo-exact palette ──── */
+:root {
+  --clr-bg: #000000;
+  --clr-surface: #111111;
+  --clr-card: #161616;
+  --clr-primary: #d74339;
+  --clr-primary-h: #bd3a31;
+  --clr-primary-l: #ed5b52;
+  --clr-cream: #efeee9;
+  --clr-muted: #9d9d9d;
+  --clr-border: #2A2A2A;
+  --clr-subtle: #3A3A3A;
+}
+
+/* ── Dynamic Theme Classes for Role-Based Isolation ── */
+.theme-client {
+  --clr-primary: #d74339;
+  --clr-primary-h: #bd3a31;
+  --clr-primary-l: #ed5b52;
+}
+
+.theme-admin {
+  --clr-primary: #2563eb;
+  --clr-primary-h: #1d4ed8;
+  --clr-primary-l: #60a5fa;
+}
+
+.theme-expert {
+  --clr-primary: #0d9488;
+  --clr-primary-h: #0f766e;
+  --clr-primary-l: #2dd4bf;
+}
+
+/* ── Base resets ────────────────────────────────── */
+@layer base {
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    font-size: 16px;
+  }
+
+  body {
+    @apply bg-bg text-egcn-text font-body antialiased;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: var(--clr-primary);
+    color: var(--clr-cream);
+  }
+
+  ::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ── Utility layer ──────────────────────────────── */
+@layer utilities {
+
+  /* Gradient text — cream to white */
+  .gradient-text {
+    background: linear-gradient(135deg, var(--clr-cream) 0%, #ffffff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Accent gradient — red only (logo dot style) */
+  .gradient-text-red {
+    background: linear-gradient(135deg, var(--clr-primary-l) 0%, var(--clr-primary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Glassmorphism — dark tinted */
+  .glass {
+    background: rgba(22, 22, 22, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  /* Red glow — logo dot accent */
+  .glow-red {
+    box-shadow: 0 0 40px rgba(192, 57, 43, 0.25), 0 0 80px rgba(192, 57, 43, 0.08);
+  }
+
+  .glow-red-sm {
+    box-shadow: 0 0 18px rgba(192, 57, 43, 0.3);
+  }
+
+  /* Screen-reader only */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  .focus\:not-sr-only:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: inherit;
+    margin: inherit;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* ── Minimal animated background — logo-aligned ─── */
+/* Pure black with a single, very subtle red radial breathe */
+.animated-mesh {
+  position: absolute;
+  inset: 0;
+  background: var(--clr-bg);
+  animation: meshBreathe 10s ease-in-out infinite alternate;
+}
+
+@keyframes meshBreathe {
+  0% {
+    background:
+      radial-gradient(ellipse 60% 50% at 15% 35%, rgba(192, 57, 43, 0.10) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 60% at 85% 20%, rgba(192, 57, 43, 0.06) 0%, transparent 55%),
+      #000000;
+  }
+
+  100% {
+    background:
+      radial-gradient(ellipse 60% 50% at 25% 50%, rgba(192, 57, 43, 0.14) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 60% at 75% 30%, rgba(192, 57, 43, 0.08) 0%, transparent 55%),
+      #000000;
+  }
+}
+
+/* ── Subtle grid — like graph paper, logo-dark ─── */
+.grid-lines {
+  background-image:
+    linear-gradient(rgba(42, 42, 42, 0.35) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(42, 42, 42, 0.35) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+/* ── Noise texture ──────────────────────────────── */
+.noise-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── Swiper — match logo red ────────────────────── */
+.swiper-button-next,
+.swiper-button-prev {
+  color: var(--clr-primary) !important;
+}
+
+.swiper-pagination-bullet-active {
+  background: var(--clr-primary) !important;
+}
+
+/* ── Red dot accent — mirrors logo ─────────────── */
+.logo-dot {
+  display: inline-block;
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 50%;
+  background: var(--clr-primary);
+  vertical-align: super;
+  margin-right: 0.05em;
+}
+
+/* ── Hide Number Input Spinner Arrows ───────────── */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
