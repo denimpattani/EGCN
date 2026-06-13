@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import Joyride, { STATUS } from 'react-joyride';
+import { Joyride, STATUS } from 'react-joyride';
 import { useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { tourSteps } from '../config/tourSteps';
@@ -18,10 +18,10 @@ export default function AppTour({ manualRun, onTourEnd }) {
     if (user.role === 'expert') roleKey = 'expert';
 
     const currentSteps = tourSteps[roleKey]?.[location.pathname];
-    
+
     if (currentSteps && currentSteps.length > 0) {
       setSteps(currentSteps);
-      
+
       if (manualRun) {
         // Triggered by button
         setRun(true);
@@ -46,14 +46,14 @@ export default function AppTour({ manualRun, onTourEnd }) {
 
     if (finishedStatuses.includes(status)) {
       setRun(false);
-      
+
       // Save completion
       const completedTours = JSON.parse(localStorage.getItem('egcn_completed_tours') || '[]');
       if (!completedTours.includes(location.pathname)) {
         completedTours.push(location.pathname);
         localStorage.setItem('egcn_completed_tours', JSON.stringify(completedTours));
       }
-      
+
       if (onTourEnd) onTourEnd();
     }
   };
