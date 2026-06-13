@@ -2,10 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, Menu, CheckCheck, X } from 'lucide-react';
+import { Bell, Menu, CheckCheck, X, HelpCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Sidebar from './Sidebar';
 import AntiGravityNetwork from '../AntiGravityNetwork';
+import AppTour from '../AppTour';
 import { logout } from '../../store/authSlice';
 import { fetchNotifications, markAsRead, markAllAsRead, addLiveNotification } from '../../store/notificationSlice';
 import socketService from '../../services/socket';
@@ -19,6 +20,7 @@ export default function DashboardLayout() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [manualTourRun, setManualTourRun] = useState(false);
   const notifRef = useRef(null);
 
   useEffect(() => {
@@ -85,6 +87,7 @@ export default function DashboardLayout() {
       <div className="fixed inset-0 z-0 opacity-50 pointer-events-none">
         <AntiGravityNetwork />
       </div>
+      <AppTour manualRun={manualTourRun} onTourEnd={() => setManualTourRun(false)} />
       <div className="fixed top-0 left-1/4 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[150px] pointer-events-none z-0" />
 
       {/* Sidebar */}
@@ -106,7 +109,17 @@ export default function DashboardLayout() {
             </h2>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 sm:gap-6">
+            
+            {/* Take a Tour Button */}
+            <button
+              onClick={() => setManualTourRun(true)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors border border-primary/20 text-sm font-medium"
+            >
+              <HelpCircle className="w-4 h-4" />
+              <span className="hidden sm:inline">Take a Tour</span>
+            </button>
+
             <div className="flex items-center gap-5" ref={notifRef}>
               <div className="relative">
                 <button
@@ -115,9 +128,7 @@ export default function DashboardLayout() {
                 >
                   <Bell className="w-8 h-8" />
                   {unreadCount > 0 && (
-                    <span className="absolute top-0 right-0 w-5 h-5 bg-primary rounded-full border-2 border-[#0A0A0A] flex items-center justify-center text-[10px] font-bold text-white">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
+                    <div className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[#0A0A0A]"></div>
                   )}
                 </button>
 
