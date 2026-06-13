@@ -1,0 +1,56 @@
+name: Deploy EGCN WebApp
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test_and_build:
+    name: Lint, Test, and Build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies (Server)
+        working-directory: ./server
+        run: npm ci
+
+      - name: Install Dependencies (Client)
+        working-directory: ./client
+        run: npm ci
+
+      - name: Build React App (Client)
+        working-directory: ./client
+        run: npm run build
+
+      - name: Test Docker Compose Build
+        run: docker-compose build
+
+  deploy:
+    name: Deploy to Production
+    needs: test_and_build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /var/www/egcn
+            git pull origin main
+            docker-compose up -d --build
+            # Health check
+            sleep 10
+            curl -f http://localhost:5000/api/health || exit 1
