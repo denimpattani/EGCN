@@ -18,6 +18,9 @@ import { connectDB } from './config/db.js'
 
 const app = express()
 
+// Trust proxies (required for express-rate-limit behind Render)
+app.set('trust proxy', 1)
+
 // CORS - Dynamically allow origins in development for hotspot/network testing
 const allowedOrigins = ['http://localhost:3000', 'http://localhost:5173'];
 if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
