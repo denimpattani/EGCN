@@ -6,6 +6,19 @@ import AntiGravityNetwork from '../../components/AntiGravityNetwork'
 
 const plans = [
   {
+    name: 'Free Tier',
+    price: 0,
+    description: 'Essential tools for early-stage tracking and insights.',
+    features: [
+      'Basic target metrics and forecasts',
+      'Daily input tracking (Limited)',
+      'Community forum access',
+      'Standard email support',
+    ],
+    accent: '#5A5A5A',
+    recommended: false,
+  },
+  {
     name: 'Business Enhancement',
     price: 799,
     description: 'Perfect for growing businesses needing direct expert advice.',
@@ -96,7 +109,7 @@ export default function PublicPricing() {
           </motion.p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8 max-w-7xl mx-auto">
           {plans.map((plan, index) => (
             <motion.div
               key={plan.name}

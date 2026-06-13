@@ -4,10 +4,10 @@ import { Link } from 'react-router-dom'
 import { useScrollY } from '../../hooks/useScrollY'
 
 const navLinks = [
-  { label: 'Services', href: '#services' },
-  { label: 'Why EGC Network', href: '#myth-breaker' },
-  { label: 'Testimonials', href: '#testimonials' },
-  { label: 'About', href: '#founder' },
+  { label: 'Services', href: '/#services' },
+  { label: 'Why EGC Network', href: '/#myth-breaker' },
+  { label: 'Testimonials', href: '/#testimonials' },
+  { label: 'About', href: '/#founder' },
 ]
 
 export default function SiteHeader() {
