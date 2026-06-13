@@ -20,6 +20,8 @@ const app = express()
 
 // CORS - Dynamically allow origins in development for hotspot/network testing
 const allowedOrigins = ['http://localhost:3000', 'http://localhost:5173'];
+if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
+
 app.use(
   cors({
     origin: (origin, callback) => {

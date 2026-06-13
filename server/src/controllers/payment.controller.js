@@ -127,7 +127,7 @@ export const verifyPayment = async (req, res) => {
     // 4. Update the User's active subscription plan
     const user = await User.findByIdAndUpdate(
       userId,
-      { 
+      {
         plan: subscription.plan,
         planExpiry: subscription.endDate
       },
@@ -202,7 +202,7 @@ export const webhookHandler = async (req, res) => {
 
         const user = await User.findByIdAndUpdate(
           subscription.userId,
-          { 
+          {
             plan: subscription.plan,
             planExpiry: subscription.endDate
           },

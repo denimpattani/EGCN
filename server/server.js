@@ -12,6 +12,8 @@ const httpServer = createServer(app)
 
 // 1. Initialize Socket.io with dynamic CORS origin for development/network testing
 const allowedOrigins = ['http://localhost:3000', 'http://localhost:5173'];
+if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
+
 const io = new SocketIOServer(httpServer, {
   cors: {
     origin: (origin, callback) => {
