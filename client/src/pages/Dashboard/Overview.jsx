@@ -485,7 +485,7 @@ export default function Overview() {
                     </h3>
                     <p className="text-[10px] text-[#8C8C8C] mb-4">Direct business recommendations from your EGCN expert</p>
                   </div>
-                  
+
                   <div className="space-y-3 max-h-[140px] overflow-y-auto scrollbar-hide pr-1">
                     {adviceFeed.map((advice) => (
                       <div key={advice.id} className="p-3 rounded-xl bg-primary/5 border border-primary/10 flex flex-col gap-1">

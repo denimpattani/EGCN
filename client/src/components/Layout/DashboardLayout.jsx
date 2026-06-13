@@ -1,26 +1,24 @@
 import { useState, useEffect, useRef } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, Menu, CheckCheck, X, HelpCircle } from 'lucide-react';
+import { Bell, Menu, CheckCheck, X, Compass } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Sidebar from './Sidebar';
 import AntiGravityNetwork from '../AntiGravityNetwork';
-import AppTour from '../AppTour';
 import { logout } from '../../store/authSlice';
 import { fetchNotifications, markAsRead, markAllAsRead, addLiveNotification } from '../../store/notificationSlice';
 import socketService from '../../services/socket';
 import api from '../../services/api';
-
 export default function DashboardLayout() {
   const { user } = useSelector((state) => state.auth);
   const { notifications, unreadCount } = useSelector((state) => state.notifications);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const [manualTourRun, setManualTourRun] = useState(false);
   const notifRef = useRef(null);
 
   useEffect(() => {
@@ -87,7 +85,6 @@ export default function DashboardLayout() {
       <div className="fixed inset-0 z-0 opacity-50 pointer-events-none">
         <AntiGravityNetwork />
       </div>
-      <AppTour manualRun={manualTourRun} onTourEnd={() => setManualTourRun(false)} />
       <div className="fixed top-0 left-1/4 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[150px] pointer-events-none z-0" />
 
       {/* Sidebar */}
@@ -96,7 +93,7 @@ export default function DashboardLayout() {
       {/* Main Content Area */}
       <div className="flex-1 ml-0 md:ml-64 flex flex-col relative z-10 h-screen overflow-y-auto">
         {/* Top Navigation */}
-        <header className="h-20 bg-[#0A0A0A]/80 backdrop-blur-md fixed top-0 right-0 left-0 md:left-64 z-30 flex items-center justify-between px-4 md:px-8">
+        <header className="h-20 bg-[#0A0A0A]/80 backdrop-blur-md fixed top-0 right-0 left-0 md:left-64 z-30 flex items-center justify-between px-4 md:px-8 border-b border-[#222]">
           <div className="flex items-center gap-4">
             <button
               className="md:hidden text-[#8C8C8C] hover:text-cream transition-colors"
@@ -105,20 +102,11 @@ export default function DashboardLayout() {
               <Menu className="w-6 h-6" />
             </button>
             <h2 className="text-xl font-bold font-display tracking-tight text-cream capitalize hidden sm:block">
-              {window.location.pathname.split('/').pop() === 'dashboard' ? 'Dashboard' : window.location.pathname.split('/').pop()}
+              {location.pathname.split('/').pop() === 'dashboard' ? 'Dashboard' : location.pathname.split('/').pop()}
             </h2>
           </div>
 
-          <div className="flex items-center gap-4 sm:gap-6">
-            
-            {/* Take a Tour Button */}
-            <button
-              onClick={() => setManualTourRun(true)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors border border-primary/20 text-sm font-medium"
-            >
-              <HelpCircle className="w-4 h-4" />
-              <span className="hidden sm:inline">Take a Tour</span>
-            </button>
+          <div className="flex items-center gap-6">
 
             <div className="flex items-center gap-5" ref={notifRef}>
               <div className="relative">
@@ -126,9 +114,9 @@ export default function DashboardLayout() {
                   className="text-[#8C8C8C] hover:text-cream transition-colors duration-300 relative group p-2"
                   onClick={() => setIsNotifOpen(!isNotifOpen)}
                 >
-                  <Bell className="w-8 h-8" />
+                  <Bell className="w-6 h-6" />
                   {unreadCount > 0 && (
-                    <div className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[#0A0A0A]"></div>
+                    <span className="absolute top-1.5 right-2 w-2.5 h-2.5 bg-primary rounded-full border-2 border-[#0A0A0A]"></span>
                   )}
                 </button>
 
