@@ -61,15 +61,5 @@ app.use('/api/admin', adminRoutes)
 app.use('/api/expert', expertRoutes)
 app.use('/api/notifications', notificationRoutes)
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ success: false, message: 'Route not found' })
-})
-
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error(err)
-  res.status(err.status || 500).json({ success: false, message: err.message || 'Internal server error' })
-})
 
 export { app, connectDB }

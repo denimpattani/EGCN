@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -19,8 +19,20 @@ export default function Workspace() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const user = useSelector((state) => state.auth.user);
-  const { room, isLoading, error } = useSelector((state) => state.workspace);
+  const { room, activeCall, isLoading, error } = useSelector((state) => state.workspace);
   const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'video' | 'calendar'
+
+  const prevActiveCallRef = useRef(null);
+
+  // Auto-switch to video tab when there is an incoming or active call
+  useEffect(() => {
+    if (activeCall && (activeCall.status === 'incoming' || activeCall.status === 'active' || activeCall.status === 'calling')) {
+      setActiveTab('video');
+    } else if (!activeCall && prevActiveCallRef.current) {
+      setActiveTab('chat');
+    }
+    prevActiveCallRef.current = activeCall;
+  }, [activeCall]);
 
   if (user?.role === 'expert') {
     return <ExpertClientChat />;
@@ -39,6 +51,13 @@ export default function Workspace() {
         const socket = socketService.connect();
         if (socket && roomData?.roomId) {
           socketService.emit('join_room', { roomId: roomData.roomId });
+
+          // Ensure we rejoin room automatically on socket reconnection (e.g. after auth token refresh)
+          socket.off('connect');
+          socket.on('connect', () => {
+            console.log('🔄 Socket reconnected! Rejoining room:', roomData.roomId);
+            socketService.emit('join_room', { roomId: roomData.roomId });
+          });
         }
         // Fetch message history and meetings list
         dispatch(fetchMessages({ roomId: roomData.roomId }));
@@ -112,7 +131,7 @@ export default function Workspace() {
 
             {/* Premium CTA Buttons */}
             <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-              <button 
+              <button
                 onClick={() => navigate('/dashboard/plans')}
                 className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary hover:bg-[#c13a31] text-cream px-8 py-4 rounded-xl font-bold transition-all duration-300 shadow-lg shadow-primary/20 group"
               >
@@ -120,7 +139,7 @@ export default function Workspace() {
                 <span>Upgrade Plan Now</span>
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
-              <button 
+              <button
                 onClick={() => window.history.back()}
                 className="w-full sm:w-auto bg-[#1A1A1A] hover:bg-[#252525] text-[#8C8C8C] hover:text-cream border border-[#252525] px-8 py-4 rounded-xl font-bold transition-all duration-300"
               >
@@ -141,16 +160,19 @@ export default function Workspace() {
 
   // Active Tab Render
   const renderActiveTab = () => {
-    switch (activeTab) {
-      case 'chat':
-        return <ChatWindow />;
-      case 'video':
-        return <VideoCall />;
-      case 'calendar':
-        return <WorkspaceCalendar />;
-      default:
-        return <ChatWindow />;
-    }
+    return (
+      <div className="flex-1 flex flex-col relative">
+        <div className={activeTab === 'chat' ? 'flex-1 flex flex-col' : 'hidden'}>
+          <ChatWindow />
+        </div>
+        <div className={activeTab === 'video' ? 'flex-1 flex flex-col' : 'hidden'}>
+          <VideoCall />
+        </div>
+        <div className={activeTab === 'calendar' ? 'flex-1 flex flex-col' : 'hidden'}>
+          <WorkspaceCalendar />
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -176,33 +198,30 @@ export default function Workspace() {
         <div className="flex bg-[#141414] border border-[#1F1F1F] rounded-xl p-1 gap-1 self-start md:self-auto">
           <button
             onClick={() => setActiveTab('chat')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
-              activeTab === 'chat'
-                ? 'bg-primary text-cream shadow-md shadow-primary/10'
-                : 'text-secondary hover:text-cream hover:bg-[#1A1A1A]'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${activeTab === 'chat'
+              ? 'bg-primary text-cream shadow-md shadow-primary/10'
+              : 'text-secondary hover:text-cream hover:bg-[#1A1A1A]'
+              }`}
           >
             <MessageSquare className="w-4 h-4" />
             <span>Advisory Chat</span>
           </button>
           <button
             onClick={() => setActiveTab('video')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
-              activeTab === 'video'
-                ? 'bg-primary text-cream shadow-md shadow-primary/10'
-                : 'text-secondary hover:text-cream hover:bg-[#1A1A1A]'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${activeTab === 'video'
+              ? 'bg-primary text-cream shadow-md shadow-primary/10'
+              : 'text-secondary hover:text-cream hover:bg-[#1A1A1A]'
+              }`}
           >
             <Video className="w-4 h-4" />
             <span>Video Consultation</span>
           </button>
           <button
             onClick={() => setActiveTab('calendar')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
-              activeTab === 'calendar'
-                ? 'bg-primary text-cream shadow-md shadow-primary/10'
-                : 'text-secondary hover:text-cream hover:bg-[#1A1A1A]'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${activeTab === 'calendar'
+              ? 'bg-primary text-cream shadow-md shadow-primary/10'
+              : 'text-secondary hover:text-cream hover:bg-[#1A1A1A]'
+              }`}
           >
             <Calendar className="w-4 h-4" />
             <span>Calendar</span>
@@ -226,18 +245,9 @@ export default function Workspace() {
           </div>
         ) : null}
 
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, x: activeTab === 'chat' ? -10 : 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: activeTab === 'chat' ? 10 : -10 }}
-            transition={{ duration: 0.25 }}
-            className="flex-1 flex flex-col min-h-0"
-          >
-            {room && renderActiveTab()}
-          </motion.div>
-        </AnimatePresence>
+        <div className="flex-1 flex flex-col min-h-0">
+          {room && renderActiveTab()}
+        </div>
       </div>
     </motion.div>
   );

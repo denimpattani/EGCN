@@ -12,6 +12,42 @@ import {
   getExpertChangedEmailTemplate,
 } from '../templates/emails/index.js';
 
+export const sendInstantCallEmail = async (toEmail, name, callerName) => {
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.SMTP_USER || 'egcnetworkofficial@gmail.com',
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  const mailOptions = {
+    from: process.env.EMAIL_FROM || '"EGCN Support" <support@egcn.in>',
+    to: toEmail,
+    subject: `🚨 ${callerName} is calling you on EGCN!`,
+    html: `
+      <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
+        <h2 style="color: #c13a31;">Incoming Video Call!</h2>
+        <p>Hello ${name},</p>
+        <p><b>${callerName}</b> is trying to start an instant video call with you right now.</p>
+        <a href="${process.env.FRONTEND_URL || 'https://egcnetwork.com'}/dashboard/workspace" style="display: inline-block; background-color: #c13a31; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin-top: 15px; font-weight: bold;">Log in to Answer</a>
+      </div>
+    `,
+  };
+
+  try {
+    if (process.env.NODE_ENV !== 'production' && !process.env.SMTP_PASS) {
+      console.log('📧 [DEV MODE] Sending Mock Call Alert to:', toEmail);
+      return true;
+    }
+    await transporter.sendMail(mailOptions);
+    return true;
+  } catch (error) {
+    console.error('Email Send Error:', error);
+    return false;
+  }
+};
+
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {

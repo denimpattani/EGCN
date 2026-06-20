@@ -25,6 +25,10 @@ export const initChatSocket = (io) => {
   io.on('connection', (socket) => {
     const userId = socket.user.id;
     console.log(`🔌 Client connected: ${socket.user.username} (ID: ${userId}) on socket ${socket.id}`);
+    
+    // Automatically join the user's private room to receive direct notifications/calls on any page
+    socket.join(userId);
+    console.log(`👤 User ${socket.user.username} (ID: ${userId}) joined private room`);
 
     // Join room event
     socket.on('join_room', ({ roomId }) => {
@@ -43,7 +47,7 @@ export const initChatSocket = (io) => {
     // Message delivery relay
     socket.on('send_message', async (payload) => {
       const { roomId, receiverId, type, content, fileUrl, fileName, fileSize } = payload;
-      
+
       if (!roomId || !receiverId) return;
 
       try {
@@ -102,16 +106,56 @@ export const initChatSocket = (io) => {
     // --- WebRTC PeerJS Calling Signals ---
 
     // 1. Call Init (Relays call invite to room)
-    socket.on('call_init', ({ roomId, peerId, callType }) => {
+    socket.on('call_init', async ({ roomId, peerId, receiverId, callType }) => {
       if (!roomId || !peerId) return;
-      console.log(`📞 Call initiated in room ${roomId} with PeerID: ${peerId}`);
-      // Notify other members of room of incoming call
-      socket.to(roomId).emit('call_incoming', {
-        from: socket.user.username,
-        fromId: userId,
-        peerId,
-        callType: callType || 'video',
-      });
+      console.log(`📞 Call initiated in room ${roomId} by ${socket.user.username} with PeerID: ${peerId}`);
+
+      try {
+        const User = (await import('../models/User.model.js')).default;
+        const Expert = (await import('../models/Expert.model.js')).default;
+
+        // Try searching in User model first, then Expert model
+        let caller = await User.findById(userId);
+        if (!caller) {
+          caller = await Expert.findById(userId);
+        }
+        const callerName = caller ? (caller.businessName || caller.fullName || caller.username || 'Client') : 'Someone';
+
+        const callPayload = {
+          from: callerName,
+          fromId: userId,
+          peerId,
+          callType: callType || 'video',
+          roomId,
+        };
+
+        // Notify other members of room of incoming call
+        socket.to(roomId).emit('call_incoming', callPayload);
+
+        // Also emit directly to the receiver's private room to ensure they receive it on any page
+        if (receiverId) {
+          socket.to(receiverId).emit('call_incoming', callPayload);
+        }
+
+        // Email fallback if expert is not connected
+        if (receiverId) {
+          const { sendInstantCallEmail } = await import('../utils/email.js');
+          let receiver = await Expert.findById(receiverId);
+          if (!receiver) {
+            receiver = await User.findById(receiverId);
+          }
+
+          if (receiver && receiver.email) {
+            await sendInstantCallEmail(
+              receiver.email,
+              receiver.businessName || receiver.fullName || receiver.username || 'Expert',
+              callerName
+            );
+          }
+        }
+      } catch (err) {
+        console.error('Failed to process call_init event:', err);
+      }
     });
 
     // 2. Call Accepted

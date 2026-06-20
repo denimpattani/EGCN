@@ -1,4 +1,5 @@
 import User from '../models/User.model.js';
+import Expert from '../models/Expert.model.js';
 import Message from '../models/Message.model.js';
 import Meeting from '../models/Meeting.model.js';
 import { sendMeetingScheduledEmail } from '../utils/email.js';
@@ -9,25 +10,27 @@ export const getRoom = async (req, res) => {
     const { id, role } = req.user;
 
     if (role === 'client') {
-      // Find an expert in the system
-      let expert = await User.findOne({ role: 'expert' });
+      const clientUser = await User.findById(id);
+      let expert = null;
+
+      if (clientUser && clientUser.assignedExpert) {
+        expert = await Expert.findById(clientUser.assignedExpert);
+      }
+
+      if (!expert) {
+        expert = await Expert.findOne().sort({ _id: -1 });
+      }
 
       // Auto-create a default expert if none exists in dev database
       if (!expert) {
-        expert = await User.create({
+        expert = await Expert.create({
           email: 'expert@egcn.com',
           username: 'expert_param',
           password: 'hashed_password_placeholder', // Dummy password
-          businessName: 'EGCN Advisory Team',
-          businessType: 'Service',
-          businessScale: '15L+',
-          address: 'EGCN Headquarters',
-          city: 'Mumbai',
-          state: 'Maharashtra',
+          fullName: 'EGCN Advisory Team',
           phone: '9876543210',
-          role: 'expert',
-          plan: 'pro',
-          isVerified: true,
+          bio: 'EGCN Expert Team',
+          expertise: 'General Growth'
         });
         console.log('✅ Default expert auto-created for development: expert@egcn.com');
       }
@@ -39,10 +42,10 @@ export const getRoom = async (req, res) => {
           roomId,
           partner: {
             _id: expert._id,
-            businessName: expert.businessName,
+            businessName: expert.fullName || expert.businessName || 'EGCN Advisory Team',
             username: expert.username,
             email: expert.email,
-            role: expert.role,
+            role: 'expert',
           },
         },
       });

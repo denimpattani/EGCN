@@ -8,6 +8,7 @@ import Sidebar from './Sidebar';
 import AntiGravityNetwork from '../AntiGravityNetwork';
 import { logout } from '../../store/authSlice';
 import { fetchNotifications, markAsRead, markAllAsRead, addLiveNotification } from '../../store/notificationSlice';
+import { setActiveCall, clearActiveCall } from '../../store/workspaceSlice';
 import socketService from '../../services/socket';
 import api from '../../services/api';
 export default function DashboardLayout() {
@@ -42,10 +43,31 @@ export default function DashboardLayout() {
       ), { duration: 5000 });
     });
 
+    socketService.on('call_incoming', ({ from, fromId, peerId, callType, roomId }) => {
+      console.log(`📞 Global Socket: Incoming call from ${from} (Room: ${roomId})`);
+      dispatch(setActiveCall({
+        peerId,
+        callType: callType || 'video',
+        status: 'incoming',
+        partnerName: from,
+        fromId,
+        roomId
+      }));
+      // Auto-navigate user to the workspace page to receive the call
+      navigate('/dashboard/workspace');
+    });
+
+    socketService.on('call_terminated', () => {
+      console.log('📞 Global Socket: Active call terminated');
+      dispatch(clearActiveCall());
+    });
+
     return () => {
       socketService.off('new_notification');
+      socketService.off('call_incoming');
+      socketService.off('call_terminated');
     };
-  }, [dispatch]);
+  }, [dispatch, navigate]);
 
   // Click outside to close notifications
   useEffect(() => {

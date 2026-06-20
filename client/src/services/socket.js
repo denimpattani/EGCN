@@ -4,13 +4,48 @@ import { store } from '../store';
 class SocketService {
   socket = null;
 
-  connect() {
-    if (this.socket?.connected) return this.socket;
+  constructor() {
+    // Self-healing subscription to Redux store changes to handle silent token refresh and logout
+    store.subscribe(() => {
+      const token = store.getState().auth.accessToken;
+      if (this.socket) {
+        if (!token) {
+          console.log('🔌 SocketService: No access token (logout), disconnecting socket...');
+          this.socket.disconnect();
+        } else {
+          const currentToken = this.socket.auth?.token || this.socket.io?.opts?.query?.token;
+          if (currentToken !== token) {
+            console.log('🔄 SocketService: Access token updated in Redux, updating socket auth...');
+            this.socket.auth = { token };
+            if (this.socket.io?.opts) {
+              this.socket.io.opts.query = { token };
+            }
+            // Disconnect and reconnect to establish new authenticated session
+            this.socket.disconnect();
+            this.socket.connect();
+          }
+        }
+      }
+    });
+  }
 
+  connect() {
     const token = store.getState().auth.accessToken;
     if (!token) {
       console.warn('⚠️ No auth token found. Socket connection skipped.');
       return null;
+    }
+
+    // Reuse existing socket instance to preserve registered event listeners
+    if (this.socket) {
+      this.socket.auth = { token };
+      if (this.socket.io?.opts) {
+        this.socket.io.opts.query = { token };
+      }
+      if (!this.socket.connected) {
+        this.socket.connect();
+      }
+      return this.socket;
     }
 
     let serverUrl;
@@ -21,6 +56,7 @@ class SocketService {
       serverUrl = `${window.location.protocol}//${window.location.hostname}:5000`;
     }
 
+    console.log('🔌 Creating new Socket.io client instance pointing to:', serverUrl);
     this.socket = io(serverUrl, {
       auth: { token },
       query: { token },
@@ -49,7 +85,6 @@ class SocketService {
   disconnect() {
     if (this.socket) {
       this.socket.disconnect();
-      this.socket = null;
       console.log('🔌 Socket connection closed manually');
     }
   }

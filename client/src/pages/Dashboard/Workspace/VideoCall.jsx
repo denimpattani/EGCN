@@ -16,6 +16,7 @@ export default function VideoCall() {
   const peerRef = useRef(null);
   const localStreamRef = useRef(null);
   const currentCallRef = useRef(null);
+  const ringTimeoutRef = useRef(null);
 
   const [callState, setCallState] = useState('idle'); // 'idle' | 'calling' | 'incoming' | 'active'
   const [incomingCallData, setIncomingCallData] = useState(null);
@@ -34,7 +35,7 @@ export default function VideoCall() {
     // Parse backend connection settings dynamically
     let peerHost = window.location.hostname;
     let isSecure = window.location.protocol === 'https:';
-    let peerPort = 5000;
+    let peerPort = isSecure ? 443 : 5000;
 
     if (import.meta.env.VITE_API_URL) {
       try {
@@ -49,10 +50,11 @@ export default function VideoCall() {
 
     console.log(`🔌 Initializing PeerJS client pointing to: ${peerHost}:${peerPort}/peer/peerjs`);
 
-    const peer = new Peer(user._id, {
+    const peerId = user._id || user.id;
+    const peer = new Peer(peerId, {
       host: peerHost,
       port: peerPort,
-      path: '/peer/peerjs',
+      path: '/peer',
       secure: isSecure,
       config: {
         iceServers: [
@@ -60,7 +62,7 @@ export default function VideoCall() {
           { urls: 'stun:stun1.l.google.com:19302' },
         ]
       },
-      debug: 1
+      debug: 3 // Verbose PeerJS logs in console for debugging WebRTC signaling
     });
 
     peer.on('open', (id) => {
@@ -76,61 +78,108 @@ export default function VideoCall() {
 
     // Handle Incoming WebRTC Call Stream
     peer.on('call', async (call) => {
-      console.log('Incoming call stream from remote peer...');
+      console.log(`📞 PeerJS: Incoming call stream from remote peer: ${call.peer}`);
       currentCallRef.current = call;
 
-      // Get local stream before answering
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await acquireLocalStream();
+      if (stream) {
         localStreamRef.current = stream;
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
         }
-
+        console.log('📞 PeerJS: Answering call with local stream...');
         call.answer(stream);
-
-        call.on('stream', (remoteStream) => {
-          console.log('Received remote video stream');
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = remoteStream;
-          }
-          setCallState('active');
-        });
-
-        call.on('close', () => {
-          handleHangUp();
-        });
-      } catch (err) {
-        console.error('Failed to get media devices for incoming call:', err);
-        call.answer(); // Answer without local stream as fallback
+      } else {
+        console.log('📞 PeerJS: Answering call without local stream...');
+        call.answer();
       }
+
+      call.on('stream', (remoteStream) => {
+        console.log('✅ PeerJS: Received remote video stream from caller.');
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = remoteStream;
+        }
+        setCallState('active');
+      });
+
+      call.on('close', () => {
+        console.log('❌ PeerJS: Call connection closed.');
+        handleHangUp();
+      });
     });
   };
+
+  // Helper to request getUserMedia with a timeout to prevent browser hangs (common with blocked/locked cameras)
+  const getUserMediaWithTimeout = (constraints, timeoutMs = 4000) => {
+    return Promise.race([
+      navigator.mediaDevices.getUserMedia(constraints),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('MediaDeviceTimeout')), timeoutMs)
+      ),
+    ]);
+  };
+
+  const acquireLocalStream = async () => {
+    try {
+      console.log('🎥 PeerJS: Requesting local media devices (video+audio)...');
+      const stream = await getUserMediaWithTimeout({ video: true, audio: true }, 4000);
+      console.log('✅ PeerJS: Local media stream acquired successfully.');
+      return stream;
+    } catch (err) {
+      console.warn('⚠️ PeerJS: Video+Audio access failed or timed out, trying audio-only fallback...', err.message || err);
+      try {
+        const stream = await getUserMediaWithTimeout({ video: false, audio: true }, 3000);
+        console.log('✅ PeerJS: Local media stream acquired (audio-only fallback).');
+        return stream;
+      } catch (err2) {
+        console.error('❌ PeerJS: Media devices blocked or timed out completely.', err2.message || err2);
+        return null;
+      }
+    }
+  };
+
+  // Sync local callState and incomingCallData with Redux activeCall state
+  useEffect(() => {
+    if (activeCall) {
+      setCallState(activeCall.status);
+      if (activeCall.status === 'incoming') {
+        setIncomingCallData({
+          from: activeCall.partnerName,
+          fromId: activeCall.fromId,
+          peerId: activeCall.peerId,
+          callType: activeCall.callType,
+          roomId: activeCall.roomId
+        });
+      }
+    } else {
+      if (callState !== 'idle') {
+        console.log('📞 VideoCall: activeCall cleared in Redux, cleaning up streams...');
+        cleanupCallStreams();
+        setCallState('idle');
+        setIncomingCallData(null);
+      }
+    }
+  }, [activeCall]);
 
   useEffect(() => {
     initPeer();
 
-    // Hook socket receivers for calling triggers
-    socketService.on('call_incoming', ({ from, fromId, peerId, callType }) => {
-      console.log(`Incoming call socket event received from: ${from}`);
-      setCallState('incoming');
-      setIncomingCallData({ from, fromId, peerId, callType });
-      dispatch(setActiveCall({ peerId, callType, status: 'incoming', partnerName: from }));
-    });
-
+    // Hook socket receivers for calling triggers (call_incoming is handled globally now)
     socketService.on('call_started', ({ peerId }) => {
       console.log('Call accepted socket event received. Handshaking WebRTC stream...');
+      if (ringTimeoutRef.current) clearTimeout(ringTimeoutRef.current);
+      setCallState('active'); // Transition to active immediately so the caller's UI updates
       startCallConnection(peerId);
     });
 
     socketService.on('call_terminated', () => {
       console.log('Call terminated socket event received.');
+      if (ringTimeoutRef.current) clearTimeout(ringTimeoutRef.current);
       cleanupCallStreams();
       setCallState('idle');
     });
 
     return () => {
-      socketService.off('call_incoming');
       socketService.off('call_started');
       socketService.off('call_terminated');
       cleanupCallStreams();
@@ -142,35 +191,32 @@ export default function VideoCall() {
   }, [dispatch]);
 
   // Connect & stream WebRTC to remote peer ID
-  const startCallConnection = (remotePeerId) => {
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-      .then((stream) => {
-        localStreamRef.current = stream;
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
+  const startCallConnection = async (remotePeerId) => {
+    console.log('🎥 PeerJS: Requesting local media devices for outgoing call handshake...');
+    const stream = await acquireLocalStream();
+    if (stream) {
+      localStreamRef.current = stream;
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+    }
 
-        console.log(`Calling remote peer: ${remotePeerId}...`);
-        const call = peerRef.current.call(remotePeerId, stream);
-        currentCallRef.current = call;
+    console.log(`📞 PeerJS: Dialing remote peer ID: ${remotePeerId}...`);
+    const call = peerRef.current.call(remotePeerId, stream || new MediaStream());
+    currentCallRef.current = call;
 
-        call.on('stream', (remoteStream) => {
-          console.log('Received remote stream inside initiated call');
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = remoteStream;
-          }
-          setCallState('active');
-        });
+    call.on('stream', (remoteStream) => {
+      console.log('✅ PeerJS: Received remote stream inside initiated call connection.');
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = remoteStream;
+      }
+      setCallState('active');
+    });
 
-        call.on('close', () => {
-          handleHangUp();
-        });
-      })
-      .catch((err) => {
-        console.error('getUserMedia failure inside calling stream initialization:', err);
-        alert('Could not start camera. Check permissions and try again.');
-        setCallState('idle');
-      });
+    call.on('close', () => {
+      console.log('❌ PeerJS: Call connection closed by remote peer.');
+      handleHangUp();
+    });
   };
 
   // Initiate call trigger (caller side)
@@ -181,10 +227,22 @@ export default function VideoCall() {
       return;
     }
     setCallState('calling');
-    dispatch(setActiveCall({ peerId: user._id, callType: 'video', status: 'calling', partnerName: room.partner.businessName }));
+    const peerId = user._id || user.id;
+    const partnerName = room.partner.businessName || room.partner.username || 'Partner';
+    dispatch(setActiveCall({ peerId, callType: 'video', status: 'calling', partnerName }));
+
+    // Auto-hangup if not answered in 30 seconds
+    ringTimeoutRef.current = setTimeout(() => {
+      alert(user.role === 'expert' ? 'Client is currently unavailable.' : 'Expert is currently unavailable.');
+      handleHangUp();
+    }, 30000);
+
+    const receiverId = room.partner._id || room.partner.id;
+
     socketService.emit('call_init', {
       roomId: room.roomId,
-      peerId: user._id,
+      peerId,
+      receiverId, // Add receiverId for backend routing
       callType: 'video'
     });
   };
@@ -193,9 +251,10 @@ export default function VideoCall() {
   const handleAcceptCall = () => {
     if (!incomingCallData) return;
     console.log('Accepting call stream. Emitting call_accepted...');
+    const peerId = user._id || user.id;
     socketService.emit('call_accepted', {
       roomId: room.roomId,
-      peerId: user._id
+      peerId
     });
     setCallState('active');
     dispatch(setActiveCall({ ...activeCall, status: 'active' }));
@@ -203,30 +262,43 @@ export default function VideoCall() {
 
   // Decline/Reject incoming call
   const handleDeclineCall = () => {
-    socketService.emit('call_ended', { roomId: room.roomId });
+    const activeRoomId = incomingCallData?.roomId || room?.roomId;
+    if (activeRoomId) {
+      socketService.emit('call_ended', { roomId: activeRoomId });
+    }
     cleanupCallStreams();
     setCallState('idle');
   };
 
   // Hangup call
   const handleHangUp = () => {
-    socketService.emit('call_ended', { roomId: room.roomId });
+    const activeRoomId = incomingCallData?.roomId || room?.roomId;
+    if (activeRoomId) {
+      socketService.emit('call_ended', { roomId: activeRoomId });
+    }
     cleanupCallStreams();
     setCallState('idle');
   };
 
   const cleanupCallStreams = () => {
+    if (ringTimeoutRef.current) clearTimeout(ringTimeoutRef.current);
     if (currentCallRef.current) {
-      currentCallRef.current.close();
+      try {
+        currentCallRef.current.close();
+      } catch (e) {}
       currentCallRef.current = null;
     }
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
+      try {
+        localStreamRef.current.getTracks().forEach(track => track.stop());
+      } catch (e) {}
       localStreamRef.current = null;
     }
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-    dispatch(clearActiveCall());
+    if (activeCall) {
+      dispatch(clearActiveCall());
+    }
     setScreenSharing(false);
   };
 
@@ -257,7 +329,8 @@ export default function VideoCall() {
     if (screenSharing) {
       // Revert back to camera stream
       cleanupCallStreams();
-      startCallConnection(room.partner._id);
+      const partnerId = room.partner._id || room.partner.id;
+      startCallConnection(partnerId);
       setScreenSharing(false);
     } else {
       try {
@@ -288,6 +361,15 @@ export default function VideoCall() {
     }
   };
 
+  if (!room || !room.partner) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#0F0F0F] relative min-h-[480px]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="mt-4 text-secondary text-sm">Connecting securely...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center bg-[#0F0F0F] relative min-h-[480px] p-6 text-center">
       {/* 1. Idle Call View */}
@@ -296,7 +378,9 @@ export default function VideoCall() {
           <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-5 animate-pulse">
             <Video className="w-8 h-8" />
           </div>
-          <h2 className="text-xl font-bold text-cream">Direct Advisor Consultation</h2>
+          <h2 className="text-xl font-bold text-cream">
+            {user.role === 'expert' ? `Consultation with ${room.partner.businessName}` : 'Direct Advisor Consultation'}
+          </h2>
           <p className="text-xs text-secondary mt-2 mb-6 max-w-xs leading-relaxed">
             Connect face-to-face with your dedicated consulting agent. Initiate an instant high-definition video call session with screen sharing support.
           </p>
@@ -314,7 +398,7 @@ export default function VideoCall() {
             ) : (
               <>
                 <Phone className="w-4 h-4 fill-current" />
-                <span>Call EGCN Expert</span>
+                <span>{user.role === 'expert' ? 'Call Client' : 'Call EGCN Expert'}</span>
               </>
             )}
           </button>
@@ -329,7 +413,7 @@ export default function VideoCall() {
             <div className="absolute inset-0 border-2 border-primary/40 rounded-full animate-ping" />
           </div>
           <h3 className="text-cream text-lg font-bold">Calling {room.partner.businessName}...</h3>
-          <p className="text-xs text-secondary animate-pulse">Waiting for expert to accept stream...</p>
+          <p className="text-xs text-secondary animate-pulse">Waiting for {user.role === 'expert' ? 'client' : 'expert'} to accept stream...</p>
 
           <button
             onClick={handleHangUp}
@@ -348,7 +432,7 @@ export default function VideoCall() {
             <Phone className="w-8 h-8 fill-current" />
             <div className="absolute inset-0 border-2 border-green-500/40 rounded-full animate-ping" />
           </div>
-          <h2 className="text-xl font-bold text-cream">Incoming Expert Call</h2>
+          <h2 className="text-xl font-bold text-cream">Incoming {user.role === 'expert' ? 'Client' : 'Expert'} Call</h2>
           <p className="text-xs text-secondary mt-2 mb-6">
             Advisory agent <span className="font-bold text-primary">{incomingCallData?.from}</span> is calling you.
           </p>
